@@ -5,6 +5,39 @@ import { isPatchEmpty } from '../../util/db';
 import * as projectHelpers from '../project/helpers';
 import { SearchguardOperations } from './searchguard';
 
+export const getAllGroups = async (
+  root,
+  { name },
+  { hasPermission, dataSources, keycloakGrant },
+) => {
+  try {
+    await hasPermission('group', 'viewAll');
+
+    if (name) {
+      const group = await dataSources.GroupModel.loadGroupByName(name);
+      return [group];
+    } else {
+      return await dataSources.GroupModel.loadAllGroups();
+    }
+  } catch (err) {
+    if (!keycloakGrant) {
+      logger.warn('No grant available for getAllGroups');
+      return [];
+    }
+
+    const user = await dataSources.UserModel.loadUserById(
+      keycloakGrant.access_token.content.sub,
+    );
+    const userGroups = await dataSources.UserModel.getAllGroupsForUser(user);
+
+    if (name) {
+      return R.filter(R.propEq('name', name), userGroups);
+    } else {
+      return userGroups;
+    }
+  }
+};
+
 export const getGroupsByProjectId = async (
   { id: pid },
   _input,
